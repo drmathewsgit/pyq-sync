@@ -1,0 +1,12 @@
+node_modules/
+dist/
+upload-dist/
+.connection.json
+.env
+.env.*
+*PRIVATE*
+*private*connection*
+*snapshot*.json
+*.zip
+*.log
+.DS_Store

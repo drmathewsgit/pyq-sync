@@ -1,0 +1,23 @@
+{
+  "id": "pyq_sheet_sync_sunil",
+  "name": "PYQ Sync",
+  "author": "Personal",
+  "description": "Sync the PYQ Google Sheet into Anatomy PYQ with one button. Keeps existing cards, lecture order and numbered answers.",
+  "version": {
+    "major": 1,
+    "minor": 1,
+    "patch": 1
+  },
+  "manifestVersion": 1,
+  "enableOnMobile": false,
+  "requestNative": false,
+  "unlisted": true,
+  "repoUrl": "https://github.com/drmathewsgit/pyq-sync",
+  "requiredScopes": [
+    {
+      "type": "DescendantsOfId",
+      "remId": "OPqM81XR10WwpOt96",
+      "level": "ReadCreateModify"
+    }
+  ]
+}
