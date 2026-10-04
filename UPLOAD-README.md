@@ -1,3 +1,3 @@
-# Upload package
+# Current release
 
-See [README.md](README.md) for build, installation, privacy and review instructions.
+Use SM-ANAT-PYQ-1.0.0-RemNote-upload.zip. See README.md for the shared master-sheet package. Old personal PYQ Sync instructions are superseded.

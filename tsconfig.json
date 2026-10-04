@@ -1,1 +1,22 @@
-{"compilerOptions":{"target":"ES2022","module":"ESNext","moduleResolution":"Bundler","jsx":"react","esModuleInterop":true,"skipLibCheck":true,"allowJs":true,"checkJs":false,"noEmit":true,"lib":["ES2022","DOM"]},"include":["src/**/*"]}
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "jsx": "react",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "lib": [
+      "ES2022",
+      "DOM"
+    ]
+  },
+  "include": [
+    "qbank-*.tsx",
+    "qbank-*.ts",
+    "qbank-*.mjs"
+  ]
+}

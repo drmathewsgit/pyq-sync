@@ -1,12 +1,12 @@
 {
-  "name": "pyq-sheet-sync",
-  "version": "1.1.1",
+  "name": "sm-anat-pyq",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "node build-upload.mjs",
-    "test": "node --test test/*.test.mjs",
-    "build:local": "node build.mjs"
+    "build": "node build.mjs",
+    "test": "node --test qbank.test.mjs",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@remnote/plugin-sdk": "0.0.46",

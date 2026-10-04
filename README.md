@@ -1,59 +1,49 @@
-# PYQ Sync
+# SM-ANAT-PYQ
 
-A personal RemNote plugin that syncs the owner's PYQ Google Sheet into the existing Anatomy PYQ folder with one button.
+One shared Anatomy question bank by Sunil Mathew. **The same plugin is used by the teacher and every student. Google Sheets is the master.**
 
-Source repository: https://github.com/drmathewsgit/pyq-sync
-Version: 1.1.1
+[Master Google Sheet](https://docs.google.com/spreadsheets/d/1Do_rqCkcn2Picm09r9z0EQ6lTbCJ9yESr6MfBxlBw20/edit) · [Public source](https://github.com/drmathewsgit/pyq-sync)
 
-## Install and connect
+## Use
 
-1. Submit the built plugin ZIP through RemNote Settings → Plugins → Build → Upload plugin. Keep the ZIP compressed. RemNote reviews JavaScript plugins, including unlisted plugins; a correctly packaged ZIP does not guarantee approval.
-2. After RemNote permits installation, open the existing knowledge base containing Anatomy PYQ.
-3. Open PYQ Sync in the sidebar, or use the “Open PYQ Sync” command.
-4. Import the separately supplied “PYQ Sync connection - PRIVATE.json” once on this device.
-5. Click “Sync PYQ now” and keep the panel open until it finishes.
+1. Install **SM-ANAT-PYQ** in RemNote after marketplace approval.
+2. Open **SM-ANAT-PYQ** from the sidebar or RemNote command search.
+3. Press **Sync question bank**.
 
-Disable the older localhost installation before switching to the hosted build. Both use the same plugin ID. Run only one installation/device at a time.
+The plugin creates its own question-bank document, regional documents and lecture documents automatically. No separate computer program, Node.js, personal link, API key, connection file, Google login or Codex is required. It needs an internet connection to receive updates. Once imported, cards are stored in your RemNote knowledge base.
 
-This upload build connects directly to Google Apps Script and does not require Codex or the Mac helper running. The existing localhost installation is an alternative personal installation while review is pending.
+## What Sync does
 
-## What sync does
+- Reads the fixed shared Google Sheet. It never uploads your cards or edits the sheet's learning content.
+- Places completed question–answer pairs under **SM-ANAT-PYQ → Region → Lecture**. Lecture titles retain AN competency codes; lecture and question order follow the sheet.
+- Accepts typed answers and completed AI answers equally. Blank, pending, review and error answers are skipped; existing completed cards remain until a valid replacement is available.
+- Updates the same card when the sheet's question, answer or lecture changes. The plugin does not reset its review history.
+- Replaces direct edits to synced question/answer text with the sheet's version on the next sync. Put corrections in the master sheet. Additional child notes remain during updates.
+- Moves a synced card, including its child notes, to RemNote Trash when its question row is physically deleted and a second complete source read confirms that deletion.
+- Handles inserted rows and repeat syncs without creating duplicates. Invalid headers, ambiguous identities or incomplete reads stop safely or report the affected item.
 
-- Reads the fixed PYQ sheet's 11 anatomy tabs and L load lecture ordering.
-- Creates cards only for questions with usable answers; blank answers, formulas, AI errors and REVIEW responses wait in Google Sheets.
-- Preserves numbered answer lines, region grouping and lecture/question order.
-- Updates existing mapped cards in place, retaining their identity and practice history.
-- Keeps conflicting manual edits and removed questions for review; it does not delete cards.
-- Writes verified card links to the existing Remnotes column and uses whole-row developer metadata for persistent question identity.
+Use Sync on **one device/window at a time**. Keep RemNote open until it finishes and let RemNote's account sync complete before switching devices. Progress and card mappings belong to each user's knowledge base; students do not share their review history.
 
-This is a manual, one-way content sync when the user presses Sync. It does not generate answers or schedule background synchronization. Google Sheets supplies the question and answer text; RemNote card IDs are written back to Google Sheets.
+## Desktop and mobile
 
-## Privacy and external services
+This hosted package has mobile support enabled and a responsive panel. It uses RemNote's API and browser networking, with no local server or desktop-only helper. The same package is intended for supported desktop, web and mobile RemNote clients after approval. Actual mobile installation and syncing still require testing in the approved app; mobile enablement alone is not a compatibility certification.
 
-The plugin sends authenticated requests to the owner's fixed Google Apps Script deployment at script.google.com; ContentService responses redirect to script.googleusercontent.com. The connector reads the fixed Google Sheet and writes card links to that sheet. Google receives the connector key and source/card-ID mappings. Questions and answers are read from Google into RemNote. There is no analytics, advertising, external AI service, or third-party proxy.
+[Download the submission ZIP](https://github.com/drmathewsgit/pyq-sync/raw/refs/heads/main/SM-ANAT-PYQ-1.0.0-RemNote-upload.zip)
 
-The connection key is not included in the source repository or plugin ZIP. It is imported separately and stored per-device using RemNote's local plugin storage. Do not publish private connection files, credentials or sheet snapshots. The manifest requests ReadCreateModify only for descendants of the existing Anatomy PYQ root; no delete permission is requested. The Apps Script source includes the deployed secret's SHA-256 verifier, not the secret.
+## Release status and submission
 
-This is a personal plugin tied to the owner's sheet and RemNote folder IDs. It is not a general-purpose importer for unrelated knowledge bases.
+Version **1.0.0** is prepared for marketplace review, not yet approved. The ZIP is a submission artifact: the publisher uploads it through **Settings → Plugins → Build → Upload plugin**. Students install the approved plugin through RemNote; they do not set up the source code or upload their own copy. RemNote's review decision and publication timing are outside this plugin's control.
 
-## Build
+The older personal **PYQ Sync** development plugin is a separate installation. This package creates its own SM-ANAT-PYQ collection and does not migrate that older plugin's card links or review history. Existing users should keep their old cards until they have checked the new collection; the plugin does not delete them.
 
-Use Node.js 20 or newer and pnpm:
+## Privacy and permissions
 
-```sh
-pnpm install --frozen-lockfile
-pnpm test
-pnpm build
-cd upload-dist
-zip -r ../pyq-sync-1.1.1.zip README.md manifest.json index.html index.js index-sandbox.js pyq_popup.js pyq_popup-sandbox.js App.css snippet.css
-```
+The plugin retrieves public anatomy learning content from a fixed Google Apps Script service maintained by the teacher. It sends no RemNote card IDs, notes, answers, credentials or review history to that service. Google may receive ordinary request metadata. The service assigns stable invisible question identities in the source sheet; the public reader does not expose the teacher's private RemNote card links or provide a content-writing endpoint.
 
-README.md and manifest.json must be at the ZIP root, alongside the compiled JavaScript. Do not upload the source archive through RemNote's Upload plugin button. `pnpm build:local` builds the optional localhost variant. `server.mjs` serves that variant with a private local `.connection.json` and fixed-sheet connector; that file is deliberately excluded.
+Requested permissions: read/create/modify/delete within the plugin's own **smAnatPyqBank** Powerup and descendants, plus the current knowledge-base identity. This enables automatic setup and limits card edits to the plugin's collection. Do not tag unrelated notes with this Powerup. The plugin does not request access to every note in your account.
 
-The upload build checks that the manifest repository URL has a valid GitHub repository shape. For a fork, set PYQ_PUBLIC_REPO_URL to the fork's real public repository URL.
+The teacher maintains the shared Google Sheet and hosted feed once for the whole class. No student-side service setup is needed. Service outages or Google quotas can temporarily delay syncing; existing imported cards remain in RemNote.
 
-## Checks and current status
+## Developer build
 
-Automated tests cover connector authorization, whole-row tracking, repeat synchronization, duplicate prevention, conflict preservation, and connection validation. A browser test verified Google accepts the cross-origin simple POST transport and rejects an invalid key. The live Google connector's row-metadata fix is deployed. Hosted RemNote installation and end-to-end hosted sync still require RemNote review and live verification.
-
-[RemNote submission requirements](https://plugins.remnote.com/advanced/submitting_plugins) · [Unlisted plugins](https://plugins.remnote.com/advanced/unlisted_plugins)
+Current source is in the root `qbank-*` files. The older `src/`, `upload-src/`, `server.mjs` and `build-upload.mjs` files are legacy personal-plugin source and are not used by this release. Users do not need the build tools. Maintainers can run `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm typecheck`, and `pnpm build`. ZIP the contents of `dist/` with README.md and manifest.json at the archive root. `qbank-connector.gs` is the public feed source for the fixed shared sheet; the legacy authenticated owner POST API is disabled in this source. The class feed is already hosted by the publisher.
