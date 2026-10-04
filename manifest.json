@@ -1,6 +1,6 @@
 {
   "id": "sm_anat_pyq",
-  "name": "SM-ANAT-PYQ",
+  "name": "AnaBodhi",
   "author": "Sunil Mathew",
   "description": "Sync the shared Anatomy PYQ Google Sheet into lecture documents and flashcards. One package for teachers and students; Google Sheets is the master.",
   "version": {

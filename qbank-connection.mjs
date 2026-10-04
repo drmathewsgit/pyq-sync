@@ -1,6 +1,6 @@
 import {validateSnapshot,SHEET_ID} from './qbank-core.mjs';
 export const STUDENT_ENDPOINT='https://script.google.com/macros/s/AKfycbyNrhzRUN0FbYZ3N_PxNlwMaDIykoG5j9YU-28ZhDu3_szixo7ZrBg9GlmO9ebOvxRkQg/exec';
-export const QBANK_NAME='SM-ANAT-PYQ';
+export const QBANK_NAME='AnaBodhi';
 export const QBANK_POWERUP='smAnatPyqBank';
 export function studentSnapshot(value){
   if(value?.audience!=='pyq-students-v1'||value.spreadsheetId!==SHEET_ID)throw new Error('The shared Anatomy Qbank feed is not available yet. Please contact your teacher.');

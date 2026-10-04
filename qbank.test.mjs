@@ -10,7 +10,7 @@ const {makeScopedAdapter}=await import('data:text/javascript;base64,'+Buffer.fro
 const sample=()=>({ok:true,audience:'pyq-students-v1',spreadsheetId:SHEET_ID,lectures:[{code:'GE-1',title:'Anatomical position (AN 1.1)',sequence:1}],rows:[{sourceId:'g1',region:'GE',lecture:'GE-1',order:1,question:'Name the position.',answer:'1. Anatomical position',ready:true,remId:'TEACHER_CARD_ID'}],tracking:{version:1,complete:true,regions:REGIONS,sourceIds:['g1']}});
 function sdk(rootId,sharedStorage){
  const rems=new Map(),trash=new Map();let seq=0;
- function rem(id,text=[]){const r={_id:id,text,backText:[],children:[],parent:null,async setText(t){this.text=t},async setBackText(t){this.backText=t},async setIsDocument(){},async isDocument(){return false},async setParent(parent,pos){if(this.parent){const old=rems.get(this.parent);old.children=old.children.filter(x=>x!==id)}this.parent=parent;const p=rems.get(parent);if(!p)throw new Error('Outside knowledge base');p.children.splice(pos??p.children.length,0,id)},async remove(){trash.set(id,this);rems.delete(id);const p=rems.get(this.parent);if(p)p.children=p.children.filter(x=>x!==id)}};rems.set(id,r);return r;}
+ function rem(id,text=[]){const r={_id:id,text,backText:[],children:[],parent:null,async setText(t){this.text=t},async setBackText(t){this.backText=t},async setIsDocument(v=true){this.document=v},async setIsFolder(v=true){this.folder=v},async isDocument(){return !!this.document},async getCards(){return this.backText.length||this.cloze?[{remId:id}]:[]},async setParent(parent,pos){if(this.parent){const old=rems.get(this.parent);old.children=old.children.filter(x=>x!==id)}this.parent=parent;const p=rems.get(parent);if(!p)throw new Error('Outside knowledge base');p.children.splice(pos??p.children.length,0,id)},async remove(){for(const child of [...this.children]){const r=rems.get(child);if(r)await r.remove()}trash.set(id,this);rems.delete(id);const p=rems.get(this.parent);if(p)p.children=p.children.filter(x=>x!==id)}};rems.set(id,r);return r;}
  rem(rootId,[QBANK_NAME]);
  const plugin={rem:{findOne:async id=>rems.get(id),createRem:async()=>rem(rootId+'-'+(++seq)),findByName:async(t,p)=>[...rems.values()].find(r=>r.parent===p&&r.text.join('')===t.join(''))},storage:{getSynced:async k=>sharedStorage.get(k),setSynced:async(k,v)=>sharedStorage.set(k,v)},richText:{toString:async t=>t.join(''),text:first=>{const parts=[first];const b={text:t=>(parts.push(t),b),newline:()=>(parts.push('\n'),b),value:()=>parts};return b}}};return {plugin,rems,trash};
 }
@@ -75,14 +75,14 @@ test('the master sheet overwrites local question and answer edits on the same ca
  const removed=await synchronize(empty,make(),undefined,async()=>empty);assert.equal(removed.trashed,1);assert.ok(a.trash.has(id));
 });
 
-test('automatic setup reuses the registered powerup document and protects a changed root',async()=>{
+test('automatic setup reuses the registered powerup document without a personal root ID',async()=>{
  const {registerQbank,ensureQbankRoot}=await import('./qbank-setup.mjs');
  const a=sdk('auto-root',new Map());let registered;
  a.plugin.app={registerPowerup:async v=>{registered=v}};
  a.plugin.powerup={getPowerupByCode:async code=>{assert.equal(code,'smAnatPyqBank');return a.rems.get('auto-root')}};
  await registerQbank(a.plugin);assert.deepEqual(registered.options,{properties:[]});
  assert.equal((await ensureQbankRoot(a.plugin,'kbA'))._id,'auto-root');assert.equal((await ensureQbankRoot(a.plugin,'kbA'))._id,'auto-root');assert.equal(a.rems.size,1);
- await a.plugin.storage.setSynced('qbank-root-v1:kbA','missing-old-root');await assert.rejects(ensureQbankRoot(a.plugin,'kbA'),/original document/);
+ await a.plugin.storage.setSynced('qbank-root-v1:kbA','missing-old-root');assert.equal((await ensureQbankRoot(a.plugin,'kbA'))._id,'auto-root');
 });
 
 test('repeated panel requests share one sync and failures allow a retry',async()=>{
@@ -91,4 +91,63 @@ test('repeated panel requests share one sync and failures allow a retry',async()
  const first=run(),second=run();assert.equal(first,second);await new Promise(r=>setImmediate(r));assert.equal(runs,1);release();assert.equal(await first,7);
  const again=run();await new Promise(r=>setImmediate(r));release();await again;assert.equal(runs,2);
  let failed=0;const fail=singleRunner(async()=>{if(!failed++)throw new Error('interrupted');return 'recovered';});await assert.rejects(fail(),/interrupted/);assert.equal(await fail(),'recovered');
+});
+
+const mirror=(a)=>makeScopedAdapter(a.plugin,{rootId:'rootA',rootName:QBANK_NAME,storagePrefix:studentStoragePrefix('kbA','rootA'),sourceAuthoritative:true,mirrorExtras:true});
+async function extra(a,parent,{question='Extra locally created card',answer='Local answer',cloze=false}={}){const r=await a.plugin.rem.createRem();await r.setText([question]);if(answer)await r.setBackText([answer]);r.cloze=cloze;await r.setParent(parent);return r;}
+test('one-way mirror removes extra and duplicate cards within the collection, including clozes',async()=>{
+ const a=sdk('rootA',new Map()),source=()=>studentSnapshot(sample());
+ const first=await synchronize(source(),mirror(a),undefined,source),id=first.bindings[0].remId,parent=a.rems.get(id).parent;
+ const x=await extra(a,parent),duplicate=await extra(a,parent,{question:sample().rows[0].question}),cloze=await extra(a,parent,{question:'A {{cloze}} fact',answer:'',cloze:true});
+ const plain=await extra(a,parent,{question:'A plain note',answer:''});
+ const outside=await a.plugin.rem.createRem();outside.text=['Outside card'];outside.backText=['Outside answer'];
+ const result=await synchronize(source(),mirror(a),undefined,source);assert.equal(result.trashed,3);assert.equal(result.unchanged,1);
+ for(const r of [x,duplicate,cloze])assert.ok(a.trash.has(r._id));assert.ok(a.rems.has(id));assert.ok(a.rems.has(plain._id));assert.ok(a.rems.has(outside._id));
+ assert.equal((await synchronize(source(),mirror(a),undefined,source)).trashed,0);
+});
+test('extra-card cleanup stops on a changed, partial or unreachable master snapshot',async()=>{
+ for(const mode of ['changed','partial','unreachable']){
+  const a=sdk('rootA',new Map()),s=studentSnapshot(sample());await synchronize(s,mirror(a),undefined,async()=>s);const x=await extra(a,'rootA');
+  const result=await synchronize(studentSnapshot(sample()),mirror(a),undefined,async()=>{if(mode==='unreachable')throw new Error('offline');const next=sample();if(mode==='partial')next.tracking.complete=false;else next.rows[0].answer='Changed mid-sync';return next;});
+  assert.equal(result.trashed,0);assert.ok(a.rems.has(x._id));assert.ok(result.warnings.length);
+ }
+});
+test('extra-card cleanup keeps a card whose sheet answer is pending',async()=>{
+ const a=sdk('rootA',new Map()),first=await synchronize(studentSnapshot(sample()),mirror(a),undefined,async()=>studentSnapshot(sample()));const id=first.bindings[0].remId;
+ const pending=sample();pending.rows[0].answer='';pending.rows[0].ready=false;const source=()=>studentSnapshot(pending);
+ const result=await synchronize(source(),mirror(a),undefined,source);assert.equal(result.trashed,0);assert.ok(a.rems.has(id));
+});
+test('a card trashed in RemNote is recreated once when its completed question remains in Sheets',async()=>{
+ const a=sdk('rootA',new Map()),source=()=>studentSnapshot(sample());const first=await synchronize(source(),mirror(a),undefined,source),oldId=first.bindings[0].remId;
+ await a.rems.get(oldId).remove();const recreated=await synchronize(source(),mirror(a),undefined,source);
+ assert.equal(recreated.created,1);assert.equal(recreated.conflicts.length,0);const newId=recreated.bindings[0].remId;assert.notEqual(newId,oldId);assert.ok(a.trash.has(oldId));assert.equal(a.rems.get(newId).backText.join(''),sample().rows[0].answer);
+ const repeat=await synchronize(source(),mirror(a),undefined,source);assert.equal(repeat.created,0);assert.equal(repeat.unchanged,1);
+});
+test('a sheet-deleted card is not downloaded again and unrelated trash is not inspected',async()=>{
+ const a=sdk('rootA',new Map()),first=await synchronize(studentSnapshot(sample()),mirror(a),undefined,async()=>studentSnapshot(sample()));const id=first.bindings[0].remId;
+ const source=()=>studentSnapshot({...sample(),rows:[],tracking:{version:1,complete:true,regions:REGIONS,sourceIds:[]}});
+ const removed=await synchronize(source(),mirror(a),undefined,source);assert.equal(removed.trashed,1);assert.ok(a.trash.has(id));
+ const repeat=await synchronize(source(),mirror(a),undefined,source);assert.equal(repeat.created,0);assert.equal(repeat.trashed,0);
+});
+
+test('deleting a lecture document recreates the lecture and its source cards without consulting Trash',async()=>{
+ const a=sdk('rootA',new Map()),source=()=>studentSnapshot(sample());const first=await synchronize(source(),mirror(a),undefined,source),oldId=first.bindings[0].remId,oldLecture=a.rems.get(oldId).parent;
+ await a.rems.get(oldLecture).remove();const result=await synchronize(source(),mirror(a),undefined,source);
+ assert.equal(result.created,1);assert.equal(result.conflicts.length,0);const id=result.bindings[0].remId;assert.notEqual(id,oldId);assert.notEqual(a.rems.get(id).parent,oldLecture);assert.ok(a.trash.has(oldLecture));assert.ok(a.trash.has(oldId));
+ assert.equal((await synchronize(source(),mirror(a),undefined,source)).created,0);
+});
+test('already trashed cards deleted from Sheets are forgotten without touching Trash or blocking cleanup',async()=>{
+ const a=sdk('rootA',new Map()),first=await synchronize(studentSnapshot(sample()),mirror(a),undefined,async()=>studentSnapshot(sample())),id=first.bindings[0].remId;
+ await a.rems.get(id).remove();const x=await extra(a,'rootA');
+ const source=()=>studentSnapshot({...sample(),rows:[],tracking:{version:1,complete:true,regions:REGIONS,sourceIds:[]}});
+ const result=await synchronize(source(),mirror(a),undefined,source);assert.equal(result.conflicts.length,0);assert.equal(result.trashed,1);assert.equal(result.created,0);assert.ok(a.trash.has(id));assert.ok(a.trash.has(x._id));
+});
+
+test('a missing plugin folder is recreated without reading old folders or Trash',async()=>{
+ const {ensureQbankRoot}=await import('./qbank-setup.mjs');
+ const a=sdk('removed-root',new Map());await a.rems.get('removed-root').remove();let registered=0,current;
+ a.plugin.powerup={getPowerupByCode:async()=>current};
+ a.plugin.app={registerPowerup:async()=>{registered++;current=await a.plugin.rem.createRem()}};
+ const root=await ensureQbankRoot(a.plugin,'kbA');assert.ok(root.folder);assert.equal(registered,1);assert.notEqual(root._id,'removed-root');assert.equal(root.text.join(''),QBANK_NAME);assert.ok(a.trash.has('removed-root'));
+ assert.equal((await ensureQbankRoot(a.plugin,'kbA'))._id,root._id);assert.equal(registered,1);
 });

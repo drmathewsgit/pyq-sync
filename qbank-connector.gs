@@ -1,6 +1,6 @@
 // PYQ Sync: this connector can access only the spreadsheet below.
 const PYQ_SHEET = '1Do_rqCkcn2Picm09r9z0EQ6lTbCJ9yESr6MfBxlBw20';
-const PYQ_AUTH_HASH = ''; // Legacy owner POST API disabled in this public source.
+const PYQ_AUTH_HASH = '';
 const PYQ_REGIONS = ['GE','UL','LL','AB','PP','T','HN','NA','EG','H','AC'];
 const PYQ_ID_KEY = 'pyq_sync';
 const PYQ_KB = '';

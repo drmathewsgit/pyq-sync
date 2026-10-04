@@ -1,4 +1,4 @@
-# SM-ANAT-PYQ
+# AnaBodhi
 
 One shared Anatomy question bank by Sunil Mathew. **The same plugin is used by the teacher and every student. Google Sheets is the master.**
 
@@ -6,19 +6,21 @@ One shared Anatomy question bank by Sunil Mathew. **The same plugin is used by t
 
 ## Use
 
-1. Install **SM-ANAT-PYQ** in RemNote after marketplace approval.
-2. Open **SM-ANAT-PYQ** from the sidebar or RemNote command search.
-3. Press **Sync question bank**.
+1. Install **AnaBodhi** in RemNote after marketplace approval.
+2. Open **AnaBodhi** from the sidebar or RemNote command search.
+3. Press **Sync**.
 
 The plugin creates its own question-bank document, regional documents and lecture documents automatically. No separate computer program, Node.js, personal link, API key, connection file, Google login or Codex is required. It needs an internet connection to receive updates. Once imported, cards are stored in your RemNote knowledge base.
 
 ## What Sync does
 
 - Reads the fixed shared Google Sheet. It never uploads your cards or edits the sheet's learning content.
-- Places completed question–answer pairs under **SM-ANAT-PYQ → Region → Lecture**. Lecture titles retain AN competency codes; lecture and question order follow the sheet.
+- Places completed question–answer pairs under **AnaBodhi → Region → Lecture**. Lecture titles retain AN competency codes; lecture and question order follow the sheet.
 - Accepts typed answers and completed AI answers equally. Blank, pending, review and error answers are skipped; existing completed cards remain until a valid replacement is available.
+- Recreates cards trashed in RemNote when their completed source question still exists in Google Sheets. Trash is not counted as an active copy. Recreated cards start fresh review history; ordinary updates keep existing history.
 - Updates the same card when the sheet's question, answer or lecture changes. The plugin does not reset its review history.
 - Replaces direct edits to synced question/answer text with the sheet's version on the next sync. Put corrections in the master sheet. Additional child notes remain during updates.
+- Removes extra locally created flashcards inside the AnaBodhi collection after two complete, consistent reads of the master sheet. Create new questions in Google Sheets. Plain notes and lecture documents are not classified as extra flashcards; notes outside the collection are never scanned.
 - Moves a synced card, including its child notes, to RemNote Trash when its question row is physically deleted and a second complete source read confirms that deletion.
 - Handles inserted rows and repeat syncs without creating duplicates. Invalid headers, ambiguous identities or incomplete reads stop safely or report the affected item.
 
@@ -28,13 +30,11 @@ Use Sync on **one device/window at a time**. Keep RemNote open until it finishes
 
 This hosted package has mobile support enabled and a responsive panel. It uses RemNote's API and browser networking, with no local server or desktop-only helper. The same package is intended for supported desktop, web and mobile RemNote clients after approval. Actual mobile installation and syncing still require testing in the approved app; mobile enablement alone is not a compatibility certification.
 
-[Download the submission ZIP](https://github.com/drmathewsgit/pyq-sync/raw/refs/heads/main/SM-ANAT-PYQ-1.0.0-RemNote-upload.zip)
-
 ## Release status and submission
 
-Version **1.0.0** is prepared for marketplace review, not yet approved. The ZIP is a submission artifact: the publisher uploads it through **Settings → Plugins → Build → Upload plugin**. Students install the approved plugin through RemNote; they do not set up the source code or upload their own copy. RemNote's review decision and publication timing are outside this plugin's control.
+Version **1.0** is prepared for marketplace review, not yet approved. The ZIP is a submission artifact: the publisher uploads it through **Settings → Plugins → Build → Upload plugin**. Students install the approved plugin through RemNote; they do not set up the source code or upload their own copy. RemNote's review decision and publication timing are outside this plugin's control.
 
-The older personal **PYQ Sync** development plugin is a separate installation. This package creates its own SM-ANAT-PYQ collection and does not migrate that older plugin's card links or review history. Existing users should keep their old cards until they have checked the new collection; the plugin does not delete them.
+The older personal **PYQ Sync** development plugin is a separate installation. This package starts from the current Google Sheet and does not migrate old plugin data or review history. The sheet decides the synced content; the plugin never edits the sheet's questions or answers.
 
 ## Privacy and permissions
 
@@ -44,6 +44,11 @@ Requested permissions: read/create/modify/delete within the plugin's own **smAna
 
 The teacher maintains the shared Google Sheet and hosted feed once for the whole class. No student-side service setup is needed. Service outages or Google quotas can temporarily delay syncing; existing imported cards remain in RemNote.
 
+## Downloads
+
+- [Marketplace submission ZIP](https://github.com/drmathewsgit/pyq-sync/raw/refs/heads/main/AnaBodhi-1.0-RemNote-upload.zip) — publisher submission for review.
+- [Direct Mac package](https://github.com/drmathewsgit/pyq-sync/raw/refs/heads/main/AnaBodhi-1.0-NonMP-Mac.zip) — download, open the included helper app, and follow [NonMP installation instructions](NonMP-README.md).
+
 ## Developer build
 
-Current source is in the root `qbank-*` files. The older `src/`, `upload-src/`, `server.mjs` and `build-upload.mjs` files are legacy personal-plugin source and are not used by this release. Users do not need the build tools. Maintainers can run `pnpm install --frozen-lockfile`, `pnpm test`, `pnpm typecheck`, and `pnpm build`. ZIP the contents of `dist/` with README.md and manifest.json at the archive root. `qbank-connector.gs` is the public feed source for the fixed shared sheet; the legacy authenticated owner POST API is disabled in this source. The class feed is already hosted by the publisher.
+The current source is the root-level `qbank-*` files. Run `pnpm install`, `pnpm test`, and `pnpm build` to produce `dist`. Package the contents of `dist` at the ZIP root for marketplace review. On a Mac with Apple command-line developer tools, `python3 build-nonmp-mac.py` builds the optional universal direct-install helper. Students do not need these tools. Legacy `src/`, `upload-src/`, `server.mjs`, and `build-upload.mjs` files are not used by AnaBodhi.

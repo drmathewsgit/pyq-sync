@@ -1,8 +1,10 @@
 node_modules/
 dist/
+nonmp-dist/
+nonmp-build-cache/
 .connection.json
 .env*
-*.private.*
+*.private.json
 *PRIVATE*
 *.log
 .DS_Store

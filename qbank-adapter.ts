@@ -1,7 +1,7 @@
 import type {RNPlugin} from '@remnote/plugin-sdk';
 import type {RemObject} from '@remnote/plugin-sdk/dist/name_spaces/rem';
 import {REGIONS, normalize} from './qbank-core.mjs';
-export function makeScopedAdapter(plugin: RNPlugin, options: {rootId:string;rootName:string;storagePrefix?:string;protectUntracked?:boolean;sourceAuthoritative?:boolean;lecturePositions?:Record<string,number>;beforeWrite?:()=>Promise<void>}) {
+export function makeScopedAdapter(plugin: RNPlugin, options: {rootId:string;rootName:string;storagePrefix?:string;protectUntracked?:boolean;sourceAuthoritative?:boolean;mirrorExtras?:boolean;lecturePositions?:Record<string,number>;beforeWrite?:()=>Promise<void>}) {
   const rootId=options.rootId,rootName=options.rootName,prefix=options.storagePrefix||'';
   const beforeWrite=options.beforeWrite||(()=>Promise.resolve());
   const cache=new Map<string,RemObject>();
@@ -23,13 +23,14 @@ export function makeScopedAdapter(plugin: RNPlugin, options: {rootId:string;root
   const api={
     protectUntracked:!!options.protectUntracked,
     sourceAuthoritative:!!options.sourceAuthoritative,
+    mirrorExtras:!!options.mirrorExtras,
     async assertRoot(){const r=await plugin.rem.findOne(rootId);if(!r||normalize(await plain(r.text))!==rootName)throw new Error('Open the knowledge base containing '+rootName+' before syncing.');cache.set(r._id,r);},
     async indexExisting(){
       const index=new Map<string,any[]>(), queue=[rootId],seen=new Set<string>();
       while(queue.length){const id=queue.shift()!;if(seen.has(id))continue;seen.add(id);if(seen.size>25000)throw new Error('Anatomy PYQ is larger than expected; sync stopped.');
         const r=cache.get(id)||await plugin.rem.findOne(id);if(!r)continue;cache.set(id,r);
         const value=await view(r), key=normalize(value.question).toLocaleLowerCase();
-        if(id!==rootId&&key){const arr=index.get(key)||[];arr.push(value);index.set(key,arr);}
+        if(id!==rootId&&key&&!await r.isDocument()){const arr=index.get(key)||[];arr.push(value);index.set(key,arr);}
         queue.push(...(r.children||[]));
       }return index;
     },
@@ -48,6 +49,35 @@ export function makeScopedAdapter(plugin: RNPlugin, options: {rootId:string;root
       const remains=await plugin.rem.findOne(id);
       if(remains&&await inside(remains))throw new Error('RemNote did not confirm removal. Allow delete access to Anatomy PYQ and retry.');
       cache.delete(id);
+    },
+    async listExtraCards(keepIds:string[],pendingQuestions:string[]){
+      const keep=new Set(keepIds),pending=new Set(pendingQuestions),all=new Map<string,RemObject>(),depths=new Map<string,number>();
+      const queue:[string,number][]=[[rootId,0]];
+      while(queue.length){const [id,depth]=queue.shift()!;if(all.has(id))continue;if(all.size>=25000)throw new Error('Question bank is larger than expected; extra-card cleanup stopped.');
+        const r=await plugin.rem.findOne(id);if(!r)throw new Error('The question bank changed during cleanup; retry sync.');
+        all.set(id,r);depths.set(id,depth);queue.push(...(r.children||[]).map(x=>[x,depth+1] as [string,number]));
+        if(pending.has(normalize(await plain(r.text)).toLocaleLowerCase()))keep.add(id);
+      }
+      // Never remove a container with a source-backed card below it.
+      const protectedIds=new Set([rootId,...keep]);
+      for(const id of keep){let r=all.get(id);const seen=new Set<string>();while(r?.parent&&!seen.has(r.parent)){seen.add(r.parent);protectedIds.add(r.parent);r=all.get(r.parent);}}
+      const extras=[];
+      for(const [id,r] of all){if(protectedIds.has(id)||await r.isDocument())continue;
+        if((await r.getCards()).length)extras.push({id,depth:depths.get(id)||0});
+      }
+      return extras.sort((a,b)=>b.depth-a.depth).map(x=>x.id);
+    },
+    async trashExtraCard(id:string,keepIds:string[]){
+      await beforeWrite();const r=await plugin.rem.findOne(id);
+      if(!r||r._id===rootId||!await inside(r)||await r.isDocument())throw new Error('Extra card moved or changed; retry sync.');
+      const keep=new Set(keepIds),queue=[id],seen=new Set<string>();
+      while(queue.length){const childId=queue.shift()!;if(seen.has(childId))continue;seen.add(childId);
+        if(keep.has(childId))throw new Error('Extra card contains a source-linked card; it was kept.');
+        const child=await plugin.rem.findOne(childId);if(!child)throw new Error('Card tree changed; retry sync.');queue.push(...(child.children||[]));
+      }
+      if(!(await r.getCards()).length)return false;
+      await r.remove();const remains=await plugin.rem.findOne(id);if(remains&&await inside(remains))throw new Error('RemNote did not confirm removal. Allow delete access and retry.');
+      cache.delete(id);return true;
     },
     async ensureLecture(lecture:any,region:string){
       if(lectures.has(lecture.code))return lectures.get(lecture.code)!;

@@ -56,12 +56,17 @@ export async function synchronize(snapshot, adapter, report = progress => {}, re
     if (saved?.remId && row.remId && saved.remId !== row.remId) {result.conflicts.push(`${row.lecture} ${row.order}: card links disagree`);continue;}
     let id = saved?.remId || row.remId;
     let card = id ? await adapter.getCard(id) : null;
-    if (id && !card) {result.conflicts.push(`${row.lecture} ${row.order}: linked card is missing or outside Anatomy PYQ`);continue;}
+    if (id && !card) {
+      if(!adapter.sourceAuthoritative){result.conflicts.push(`${row.lecture} ${row.order}: linked card is missing or outside the managed question bank`);continue;}
+      // Trash is not a live copy. Recreate from the master inside this collection.
+      // A card moved outside the collection is left untouched.
+      await adapter.untrackMapping(row.sourceId);id=null;
+    }
     let adopted=false;
     if (!card) {
       const candidates = index.get(normalize(row.question).toLocaleLowerCase()) || [];
-      if (candidates.length>1) {result.conflicts.push(`${row.lecture} ${row.order}: multiple existing cards match`);continue;}
-      if (candidates.length===1) { card=candidates[0]; adopted=true; }
+      if (candidates.length>1&&!adapter.sourceAuthoritative) {result.conflicts.push(`${row.lecture} ${row.order}: multiple existing cards match`);continue;}
+      if (candidates.length) { card=[...candidates].sort((a,b)=>a.id.localeCompare(b.id))[0]; adopted=true; }
     }
     if (card && used.has(card.id)) {result.conflicts.push(`${row.lecture} ${row.order}: another question already uses this card`);continue;}
     const parent = await adapter.ensureLecture(lectures.get(row.lecture), row.region);
@@ -85,6 +90,7 @@ export async function synchronize(snapshot, adapter, report = progress => {}, re
   }
   await adapter.orderCards(rows,result.bindings);
   await trashRemovedRows(snapshot,adapter,result,rereadSource,report);
+  if(adapter.mirrorExtras)await trashExtraCards(snapshot,adapter,result,rereadSource,report);
   report({done:rows.length,total:rows.length,message:'Saving card links…'});
   return result;
 }
@@ -110,7 +116,7 @@ async function trashRemovedRows(snapshot,adapter,result,rereadSource,report){
     if(liveCardIds.has(remId)){result.conflicts.push(`${sourceId}: another sheet row still uses this card`);continue;}
     const saved=await adapter.getMapping(sourceId),card=await adapter.getCard(remId);
     if(!saved||saved.remId!==remId||saved.question===undefined||saved.answer===undefined){result.conflicts.push(`${sourceId}: removed row has no verified card baseline; card kept`);continue;}
-    if(!card){result.conflicts.push(`${sourceId}: removed row's card is already missing or outside Anatomy PYQ`);continue;}
+    if(!card){if(adapter.sourceAuthoritative){await adapter.untrackMapping(sourceId);continue;}result.conflicts.push(`${sourceId}: removed row's card is already missing or outside the managed question bank`);continue;}
     if(!adapter.sourceAuthoritative&&(normalize(card.question)!==normalize(saved.question)||card.answer.trim()!==String(saved.answer).trim()||card.parent!==saved.parent)){result.conflicts.push(`${sourceId}: removed row's card was edited or moved in RemNote; card kept`);continue;}
     try{
       await adapter.trashCard(remId);
@@ -118,4 +124,26 @@ async function trashRemovedRows(snapshot,adapter,result,rereadSource,report){
       result.trashed++;
     }catch(e){result.warnings.push(`${sourceId}: ${e.message||'Could not move card to Trash. Retry sync.'}`);}
   }
+}
+
+async function trashExtraCards(snapshot,adapter,result,rereadSource,report){
+  if(result.conflicts.length||result.warnings.length||Number(snapshot.skippedRows)>0){result.warnings.push('Extra-card cleanup was skipped because some items need attention.');return;}
+  let fresh;
+  const content=s=>JSON.stringify({lectures:s.lectures,rows:s.rows.map(r=>[r.sourceId,r.region,r.lecture,r.order,r.question,r.answer,r.ready]),ids:[...s.tracking.sourceIds].sort()});
+  try{
+    if(!snapshot.tracking||!rereadSource)throw new Error('Complete source confirmation is required.');
+    report({done:0,total:1,message:'Confirming the master sheet before removing extra cards…'});
+    fresh=validateSnapshot(await rereadSource());
+    if(!fresh.tracking||fresh.warnings?.length||Number(fresh.skippedRows)>0||content(fresh)!==content(snapshot))throw new Error('The sheet changed or returned an incomplete response.');
+  }catch{result.warnings.push('Extra cards were kept because the master sheet could not be confirmed unchanged. Retry sync.');return;}
+  const tracked=await adapter.getTrackedMappings();
+  const keepIds=[...new Set([...fresh.tracking.sourceIds.map(id=>tracked[id]).filter(Boolean),...result.bindings.map(b=>b.remId)])];
+  const pending=fresh.rows.filter(r=>!r.ready).map(r=>normalize(r.question).toLocaleLowerCase());
+  try{
+    const extraIds=await adapter.listExtraCards(keepIds,pending);
+    for(let n=0;n<extraIds.length;n++){
+      report({done:n,total:extraIds.length,message:'Moving extra RemNote cards to Trash…'});
+      if(await adapter.trashExtraCard(extraIds[n],keepIds))result.trashed++;
+    }
+  }catch(e){result.warnings.push('Extra-card cleanup stopped: '+(e.message||'retry sync.'));}
 }

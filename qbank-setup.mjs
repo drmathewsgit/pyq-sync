@@ -6,11 +6,11 @@ export async function registerQbank(plugin){
 
 export async function ensureQbankRoot(plugin,kbId){
   const key=`qbank-root-v1:${kbId}`;
-  const known=await plugin.storage.getSynced(key);
-  const root=await plugin.powerup.getPowerupByCode(QBANK_POWERUP);
-  if(!root)throw new Error('The question bank document is unavailable. Reopen the plugin, or restore its document from RemNote Trash.');
-  if(known&&known!==root._id)throw new Error('The connected question bank document has changed. Restore the original document from Trash before syncing.');
+  let root=await plugin.powerup.getPowerupByCode(QBANK_POWERUP);
+  if(!root){await registerQbank(plugin);root=await plugin.powerup.getPowerupByCode(QBANK_POWERUP);}
+  if(!root)throw new Error('RemNote could not create the AnaBodhi folder. Reopen the plugin and retry Sync.');
   await root.setIsDocument(true);
+  await root.setIsFolder(true);
   if(await plugin.richText.toString(root.text)!==QBANK_NAME)await root.setText([QBANK_NAME]);
   await plugin.storage.setSynced(key,root._id);
   return root;
