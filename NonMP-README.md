@@ -22,7 +22,7 @@ This locally built app is not Apple-notarized. macOS may ask you to approve it. 
 
 Google Sheets is the master. Add new questions and edit answers in the sheet. Sync updates the corresponding RemNote cards in place, preserving their review history. A card trashed in RemNote is recreated when its completed source question still exists; that new card starts fresh review history. Deleted sheet questions and extra flashcards created inside AnaBodhi move to RemNote Trash after a complete, consistent source check. Documents and plain notes are not treated as extra flashcards. Other collections are untouched.
 
-Unfinished, blank or error answers wait in Sheets; existing completed cards are retained. Keep the Sync panel open until it finishes. Use Sync on one device/window at a time and let RemNote's account sync finish before switching devices.
+Unfinished, blank or error answers wait in Sheets; existing completed cards are retained. Keep the Sync panel open until it finishes. Then select **Close** at the top right, or press **Escape**, to return to your notes. Closing the panel does not delete your cards or quit the Mac helper. Use Sync on one device/window at a time and let RemNote's account sync finish before switching devices.
 
 ## Each time you use it
 

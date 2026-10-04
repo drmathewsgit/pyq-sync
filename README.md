@@ -24,7 +24,7 @@ The plugin creates its own question-bank document, regional documents and lectur
 - Moves a synced card, including its child notes, to RemNote Trash when its question row is physically deleted and a second complete source read confirms that deletion.
 - Handles inserted rows and repeat syncs without creating duplicates. Invalid headers, ambiguous identities or incomplete reads stop safely or report the affected item.
 
-Use Sync on **one device/window at a time**. Keep the Sync panel open until it finishes and let RemNote's account sync complete before switching devices. Progress and card mappings belong to each user's knowledge base; students do not share their review history.
+Use Sync on **one device/window at a time**. Keep the Sync panel open until it finishes. Then select **Close** at the top right, or press **Escape**, to return to your notes. Closing the panel does not delete your cards or quit the Mac helper. Let RemNote's account sync complete before switching devices. Progress and card mappings belong to each user's knowledge base; students do not share their review history.
 
 ## Desktop and mobile
 
