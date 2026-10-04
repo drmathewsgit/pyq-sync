@@ -45,7 +45,9 @@ if(__PYQ_WIDGET__==='index'){
    if(message?.type==='sm-qbank-sync')await run();
 
   });
-  await plugin.app.registerWidget('qbank_popup',WidgetLocation.Popup,{dimensions:{height:'auto',width:'min(480px, 100vw)'}});
+  // Numeric dimensions avoid a feedback loop between the iframe's auto height
+  // and a scroll container measured against that same iframe viewport.
+  await plugin.app.registerWidget('qbank_popup',WidgetLocation.Popup,{dimensions:{height:560,width:440}});
   await plugin.app.registerSidebarButton({id:'open-qbank',name:QBANK_NAME,icon:'sync',action:()=>plugin.widget.openPopup('qbank_popup')});
   await plugin.app.registerCommand({id:'open-qbank',name:'Open AnaBodhi',action:()=>plugin.widget.openPopup('qbank_popup')});
  },async plugin=>{plugin.event.removeListener(AppEvents.MessageBroadcast,undefined);});
