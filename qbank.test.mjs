@@ -151,3 +151,32 @@ test('a missing plugin folder is recreated without reading old folders or Trash'
  const root=await ensureQbankRoot(a.plugin,'kbA');assert.ok(root.folder);assert.equal(registered,1);assert.notEqual(root._id,'removed-root');assert.equal(root.text.join(''),QBANK_NAME);assert.ok(a.trash.has('removed-root'));
  assert.equal((await ensureQbankRoot(a.plugin,'kbA'))._id,root._id);assert.equal(registered,1);
 });
+
+const runnerBuild=await build({entryPoints:[new URL('./qbank-runner.mjs',import.meta.url).pathname],bundle:true,write:false,format:'esm',platform:'node'});
+const {runQbankSync}=await import('data:text/javascript;base64,'+Buffer.from(runnerBuild.outputFiles[0].text).toString('base64'));
+function runnerSdk(){const a=sdk('rootA',new Map());a.plugin.app={waitForInitialSync:async()=>{}};a.plugin.kb={getCurrentKnowledgeBaseData:async()=>({_id:'kbA'})};a.plugin.storage.setLocal=async()=>{};return a;}
+function runnerOptions(a,source=()=>studentSnapshot(sample())){return {fetchSnapshot:source,ensureRoot:async()=>a.rems.get('rootA'),lockManager:null};}
+test('direct sync reports progress immediately, creates a card, and shows repeat-sync counts',async()=>{
+ const a=runnerSdk(),states=[];let release;a.plugin.app.waitForInitialSync=()=>new Promise(r=>{release=r});
+ const reads=[];const pending=runQbankSync(a.plugin,v=>states.push(v),runnerOptions(a,fresh=>{reads.push(fresh);return studentSnapshot(sample())}));assert.equal(states[0].busy,true);assert.equal(states[0].message,'Connecting to RemNote…');assert.equal(a.rems.size,1);
+ release();const done=await pending;assert.ok(reads.length>=1);assert.ok(reads.every(fresh=>fresh===true));assert.equal(done.busy,false);assert.equal(done.result.created,1);assert.ok(states.some(s=>s.message==='Reading the master Google Sheet…'));assert.ok(states.some(s=>s.message==='Preparing your AnaBodhi folder…'));
+ a.plugin.app.waitForInitialSync=async()=>{};const repeat=await runQbankSync(a.plugin,()=>{},runnerOptions(a));assert.equal(repeat.result.created,0);assert.equal(repeat.result.unchanged,1);
+});
+test('direct sync shows feed errors and does not create cards',async()=>{
+ const a=runnerSdk(),done=await runQbankSync(a.plugin,()=>{},runnerOptions(a,async()=>{throw new Error('offline')}));assert.equal(done.error,'offline');assert.equal(done.busy,false);assert.equal(a.rems.size,1);
+});
+test('a RemNote startup timeout produces a visible retry message',async()=>{
+ const a=runnerSdk();a.plugin.app.waitForInitialSync=()=>new Promise(()=>{});const done=await runQbankSync(a.plugin,()=>{},{...runnerOptions(a),timeoutMs:5});assert.equal(done.busy,false);assert.match(done.error,/still loading/);assert.equal(a.rems.size,1);
+});
+test('direct sync refuses a second window while the sync lock is held',async()=>{
+ const a=runnerSdk();let read=false;const done=await runQbankSync(a.plugin,()=>{},{...runnerOptions(a,async()=>{read=true;return studentSnapshot(sample())}),lockManager:{request:async(name,options,callback)=>{assert.ok(name.includes('kbA'));assert.equal(options.ifAvailable,true);await callback(null);}}});assert.equal(read,false);assert.match(done.error,/sync is running/);assert.equal(a.rems.size,1);
+});
+test('failure to store the summary still reports completed card counts',async()=>{
+ const a=runnerSdk();a.plugin.storage.setLocal=async()=>{throw new Error('storage unavailable')};const done=await runQbankSync(a.plugin,()=>{},runnerOptions(a));assert.equal(done.error,'');assert.equal(done.result.created,1);assert.ok(done.result.warnings.some(x=>x.includes('summary')));assert.equal(done.busy,false);
+});
+test('a missing knowledge-base identity produces a visible error before reading Sheets',async()=>{
+ const a=runnerSdk();let read=false;a.plugin.kb.getCurrentKnowledgeBaseData=async()=>undefined;const done=await runQbankSync(a.plugin,()=>{},runnerOptions(a,async()=>{read=true;return studentSnapshot(sample())}));assert.equal(read,false);assert.match(done.error,/Open a RemNote knowledge base/);assert.equal(done.busy,false);
+});
+test('a sandbox without browser-lock access can still sync once from the panel',async()=>{
+ const a=runnerSdk(),done=await runQbankSync(a.plugin,()=>{},{...runnerOptions(a),lockManager:{request:async()=>{const e=new Error('opaque origin');e.name='SecurityError';throw e;}}});assert.equal(done.error,'');assert.equal(done.result.created,1);
+});
